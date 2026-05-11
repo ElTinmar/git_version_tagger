@@ -1,7 +1,6 @@
 import subprocess
 import re
 import argparse
-import os
 from pathlib import Path
 
 # Pre-compiled regex for better performance during history scanning
@@ -22,6 +21,10 @@ def run_command(args, cwd=None):
         return result.strip()
     except subprocess.CalledProcessError:
         return None
+
+def get_current_branch(repo_path):
+    """Returns the name of the current branch."""
+    return run_command(["git", "branch", "--show-current"], cwd=repo_path) or "Unknown"
 
 def get_commit_history(filename, repo_path):
     """Returns a list of commit hashes where the file was changed, oldest to newest."""
@@ -108,14 +111,15 @@ def sync_tags_from_history(repo_path, filename="setup.py", execute=False):
 
     print(f"\nTotal tags identified: {tag_count}")
     
-    if execute:
-        if tag_count > 0:
-            print("\nSUCCESS: Local tags applied.")
-            print("To sync these with GitHub, run:")
-            print(f"    cd {repo_path} && git push origin --tags")
+    if execute and tag_count > 0:
+        print("\nSUCCESS: Local tags applied.")
+        confirm = input("Would you like to push these tags to origin now? (y/N): ").lower()
+        if confirm == 'y':
+            print(f"Pushing tags from {repo_path}...")
+            subprocess.check_call(["git", "push", "origin", "--tags"], cwd=repo_path)
         else:
-            print("No new versions were found to tag.")
-    elif tag_count > 0:
+            print("Push cancelled. You can push manually with 'git push origin --tags'")
+    elif not execute and tag_count > 0:
         print("\n>>> Review the dry-run output above.")
         print(">>> To apply these tags locally, run with: --execute")
 
@@ -123,32 +127,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Retroactively tag Git commits based on version changes in a file."
     )
-    parser.add_argument(
-        "--repo", 
-        default=".", 
-        help="Path to the Git repository (default: current directory)"
-    )
-    parser.add_argument(
-        "--file", 
-        default="setup.py", 
-        help="The file to monitor for version changes (default: setup.py)"
-    )
-    parser.add_argument(
-        "--execute", 
-        action="store_true", 
-        help="Actually apply the tags to the local repository."
-    )
+    parser.add_argument("--repo", default=".", help="Path to the Git repository")
+    parser.add_argument("--file", default="setup.py", help="The file to monitor (default: setup.py)")
+    parser.add_argument("--execute", action="store_true", help="Actually apply the tags")
     
     args = parser.parse_args()
     repo_path = Path(args.repo).resolve()
     target_file = repo_path / args.file
 
-    # Validation
     if not (repo_path / ".git").exists():
         print(f"Error: '{repo_path}' does not appear to be a Git repository.")
     elif not target_file.exists():
         print(f"Error: File '{args.file}' not found in '{repo_path}'.")
     else:
+        current_branch = get_current_branch(repo_path)
         mode = "EXECUTION" if args.execute else "DRY-RUN"
-        print(f"--- Starting Retroactive Tagging in {repo_path} ({mode} mode) ---")
-        sync_tags_from_history(repo_path=repo_path, filename=args.file, execute=args.execute)
+        
+        print("-" * 60)
+        print(f"REPO:   {repo_path}")
+        print(f"BRANCH: {current_branch}")
+        print(f"FILE:   {args.file}")
+        print(f"MODE:   {mode}")
+        print("-" * 60)
+
+        confirm = input("Keep going? (y/N): ").lower()
+        if confirm == 'y':
+            sync_tags_from_history(repo_path=repo_path, filename=args.file, execute=args.execute)

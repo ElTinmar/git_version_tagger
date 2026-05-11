@@ -105,12 +105,20 @@ def sync_tags_from_history(filename="setup.py", execute=False):
             
             last_version = current_version
 
-    print(f"\nTotal tags processed: {tag_count}")
-    if not execute and tag_count > 0:
-        print(">>> SUCCESS: Review the output above. Run again with --execute to apply tags.")
+    print(f"\nTotal tags identified: {tag_count}")
+    
+    if execute:
+        if tag_count > 0:
+            print("\nSUCCESS: Local tags applied.")
+            print("To sync these with GitHub, run:")
+            print("    git push origin --tags")
+        else:
+            print("No new versions were found to tag.")
+    elif tag_count > 0:
+        print("\n>>> Review the dry-run output above.")
+        print(">>> To apply these tags locally, run with: --execute")
 
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser(
         description="Retroactively tag Git commits based on version changes in a file."
     )
@@ -127,7 +135,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    # Final safety check: ensure the file exists in the current working directory
     if not Path(args.file).exists():
         print(f"Error: File '{args.file}' not found. Please run this in your project root.")
     else:

@@ -123,7 +123,8 @@ def sync_tags_from_history(repo_path, filename="setup.py", execute=False):
         print("\n>>> Review the dry-run output above.")
         print(">>> To apply these tags locally, run with: --execute")
 
-if __name__ == "__main__":
+def main():
+    
     parser = argparse.ArgumentParser(
         description="Retroactively tag Git commits based on version changes in a file."
     )
@@ -153,3 +154,6 @@ if __name__ == "__main__":
         confirm = input("Keep going? (y/N): ").lower()
         if confirm == 'y':
             sync_tags_from_history(repo_path=repo_path, filename=args.file, execute=args.execute)
+
+if __name__ == "__main__":
+    main()
